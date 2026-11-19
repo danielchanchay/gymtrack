@@ -1180,18 +1180,38 @@ const saveActive = () => { lsSet(LS_ACTIVE, S.active); docs.activo = { a: S.acti
 /* ---------- Ejemplos ---------- */
 function cargarDemo() {
   const base = { 'Press de banca': 70, 'Press militar con barra': 42.5, 'Press inclinado con mancuernas': 24, 'Elevaciones laterales': 9, 'Extensión de tríceps en polea': 25, 'Peso muerto': 110, 'Dominadas': 0, 'Remo con barra': 60, 'Jalón al pecho': 55, 'Curl con barra': 30, 'Sentadilla': 90, 'Peso muerto rumano': 80, 'Prensa de piernas': 140, 'Curl femoral': 40, 'Elevación de talones': 60, 'Elevación de piernas colgado': 0 };
+  // Menús de ejemplo con alimentos de la lista base: [nombre, porciones].
+  const MENU = {
+    Desayuno: [[['Huevo entero', 2], ['Arepa de maíz', 1], ['Queso fresco', 1], ['Café negro', 1]], [['Avena en hojuelas', 1], ['Banano', 1], ['Leche descremada', 1], ['Mantequilla de maní', 1]], [['Huevo entero', 3], ['Pan integral', 2], ['Café negro', 1]]],
+    Almuerzo: [[['Pechuga de pollo a la plancha', 1.8], ['Arroz blanco', 1], ['Frijoles negros', 1], ['Ensalada mixta', 1]], [['Carne molida magra', 1.5], ['Arroz blanco', 1], ['Plátano maduro cocido', 1], ['Aguacate', .5]], [['Bistec de res', 1.5], ['Papa cocida', 1], ['Lentejas', 1], ['Ensalada mixta', 1]]],
+    Cena: [[['Atún en agua', 1], ['Arepa de maíz', 1], ['Tomate', 1]], [['Pechuga de pollo a la plancha', 1.5], ['Camote', 1], ['Brócoli cocido', 1]], [['Salmón', 1.2], ['Arroz integral', 1], ['Ensalada mixta', 1]]],
+    Snacks: [[['Proteína whey', 1], ['Banano', 1]], [['Yogur griego natural', 1], ['Fresas', 1]], [['Almendras', 1], ['Manzana', 1]]]
+  };
+  const alimento = n => ALIMENTOS.find(a => a.n === n);
   const now = new Date(), toca = new Set();
-  for (let i = 42; i >= 1; i--) {
-    const d = addDays(now, -i), k = keyOf(d), r = rutina(grupo().plan[dow(d)]), sem = Math.floor((42 - i) / 7);
-    if (r && i % 11) {
+  for (let i = 42; i >= 0; i--) {
+    const d = addDays(now, -i), k = keyOf(d), r = rutina(grupo().plan[dow(d)]), sem = Math.floor((42 - i) / 7), dw = diaW(k);
+    // Comidas: días pasados completos; hoy, solo desayuno y almuerzo.
+    for (const m of COMIDAS) {
+      if (i === 0 && (m === 'Cena' || m === 'Snacks')) continue;
+      const extra = m === 'Almuerzo' || m === 'Cena' ? 1.3 : 1;
+      for (const [n, q] of MENU[m][(i + COMIDAS.indexOf(m)) % 3]) { const a = alimento(n); if (a) dw.food.push({ m, ...a, q: Math.round(q * extra * 10) / 10, demo: true }); }
+    }
+    if (!dw.water) { dw.water = i === 0 ? 4 : 6 + (i % 4); dw.demoAgua = true; }
+    if (i >= 1 && r && i % 11) {
       const ex = r.ex.map(e => {
         const b = base[e.n] ?? 20, kg = b ? Math.round((b + b * .015 * sem) / 2.5) * 2.5 : 0, rr = rangoReps(e.reps);
         return { n: e.n, sets: Array.from({ length: e.sets }, (_, s) => ({ kg, reps: Math.max(rr.lo, rr.hi - s) })) };
       });
-      mes(k).sessions.push({ id: newId('demo'), ts: d.getTime() + 64800000, date: k, name: r.name, dur: 50 + (i % 4) * 5, ex, demo: true });
-      toca.add(k.slice(0, 7));
+      const dur = 50 + (i % 4) * 5, min = 15 + (i % 3) * 5;
+      const cardio = i % 2 ? [{ act: 'Caminadora', min, km: Math.round(min * .09 * 10) / 10, steps: min * 110, kcal: min * 8 }] : [];
+      mes(k).sessions.push({ id: newId('demo'), ts: d.getTime() + 64800000, date: k, name: r.name, dur, total: dur * 60, warm: 300, kcal: 260 + (i % 5) * 30, cardio, ex, demo: true });
+    } else if (i >= 1 && i % 2 === 0) {
+      const min = 35 + (i % 3) * 10;
+      (dw.cardio = dw.cardio || []).push({ act: 'Caminata', min, km: Math.round(min * .08 * 10) / 10, steps: min * 105, kcal: min * 5, demo: true });
     }
-    if (i % 3 === 0) { const w = diaW(k); w.weight = Math.round((78.6 - (42 - i) * .035 + Math.sin(i) * .25) * 10) / 10; w.demoW = true; toca.add(k.slice(0, 7)); }
+    if (i >= 1 && i % 3 === 0) { dw.weight = Math.round((78.6 - (42 - i) * .035 + Math.sin(i) * .25) * 10) / 10; dw.demoW = true; }
+    toca.add(k.slice(0, 7));
   }
   cfg().demo = true; save();
   toca.forEach(m => save(m + '-01'));
@@ -1200,7 +1220,13 @@ function borrarDemo() {
   for (const id in docs) if (id.startsWith('m-')) {
     const m = docs[id];
     m.sessions = (m.sessions || []).filter(s => !s.demo);
-    for (const k in m.days) if (m.days[k].demoW) { delete m.days[k].weight; delete m.days[k].demoW; }
+    for (const k in m.days) {
+      const d = m.days[k];
+      if (d.demoW) { delete d.weight; delete d.demoW; }
+      d.food = (d.food || []).filter(e => !e.demo);
+      if (d.cardio) d.cardio = d.cardio.filter(c => !c.demo);
+      if (d.demoAgua) { delete d.water; delete d.demoAgua; }
+    }
     save(id.slice(2) + '-01');
   }
   cfg().demo = false; save();
