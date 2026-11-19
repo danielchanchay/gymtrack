@@ -8,7 +8,7 @@ La construí porque ninguna app que probé hacía las dos cosas que necesitaba, 
 
 | Hoy | Entreno | Comida | Progreso |
 | --- | --- | --- | --- |
-| ![Hoy](capturas/01-hoy.png) | ![Entreno](capturas/02-entreno.png) | ![Comida](capturas/03-comida.png) | ![Progreso](capturas/04-progreso.png) |
+| ![Hoy](01-hoy.png) | ![Entreno](02-entreno.png) | ![Comida](03-comida.png) | ![Progreso](04-progreso.png) |
 
 ## Qué hace
 
